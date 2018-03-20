@@ -11,6 +11,7 @@ Get and renew Let's Encrypt Wildcard Certificates using Certbot.
 | -revoke   | revoke `--host` certificate                      |
 | -clean    | remove all certificates                          |
 | -test     | use staging test server instead of production    |
+| -force    | force get/renew even when cert not expired       |
 | -verbose  | talkative mode                                   |
 
 
@@ -47,6 +48,14 @@ Revoke a certificate.
 ### `-clean`
 
 Removes the `letsencrypt` directory. Use it with caution after test runs only.
+
+### `-force`
+
+Forces renewal or getting the certificate even when it is not expired.
+
+### `-verbose`
+
+Turn on more info output of the progress. Use this for debugging.
 
 ### `--dns`
 

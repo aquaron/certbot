@@ -42,15 +42,17 @@ Usage: docker run -t --rm -v $(green "<local-dir>"):/data aquaron/certbot [$(yel
  $(green "<local-dir>") - directory on the host system to map to container
 
  $(yellow "<options>"):
-   --host  - FQN to get domain certificate (eg $(fade "example.com"))
-   --dns   - dns-01 challenge plugin (eg $(fade "digitalocean"))
-   --email - Email address of maintainer (eg $(fade "me@example.com"))
+   --host   - FQN to get domain certificate (eg $(fade "example.com"))
+   --dns    - dns-01 challenge plugin (eg $(fade "digitalocean"))
+   --email  - Email address of maintainer (eg $(fade "me@example.com"))
 
-   -get    - Get new certificate
-   -renew  - Renew all certificates
-   -test   - Use staging server instead of production
-   -revoke - Revoke certificate and delete it
-   -clean  - Remove letsencrypt directory (careful with this)
+   -get     - Get new certificate
+   -renew   - Renew all certificates
+   -revoke  - Revoke certificate and delete it
+   -clean   - Remove letsencrypt directory (careful with this)
+   -test    - Use staging server instead of production
+   -force   - Toggles forcing of renewal (for both get/renew)
+   -verbose - Turn on talkative mode
 EOT
 `
 if [[ $# -lt 1 ]] || [[ ! "${_VOL}" ]]; then echo "$HELP"; exit 1; fi
@@ -117,6 +119,7 @@ certbot_wildcard() {
 
 certbot_renew() {
     hint "Renew certificates"
+
     local _result=$(certbot renew --config "${_CONFFILE}" 2>&1 | grep 'fullchain.pem ')
     local _success=$(echo "${_result}" | grep '(success)' | cut -d"/" -f 5 | paste -s -d" ")
     local _skipped=$(echo "${_result}" | grep '(skipped)' | cut -d"/" -f 5 | paste -s -d" ")
@@ -206,12 +209,18 @@ setup_env() {
         mkdir -p ${_LEDIR}
     fi
 
-    if [ "${CONF[test]}" ]; then
+    if [[ "${CONF[test]}" ]]; then
         verbose "+ using $(yellow "STAGING") server"
         sed -e 's/server =.*//' -e 's/server-stage/server/' ${_inifile} > ${_CONFFILE}
     else
         verbose "+ using $(green "PRODUCTION") server"
         sed -e 's/server-stage =.*//' ${_inifile} > ${_CONFFILE}
+    fi
+
+    if [[ "${CONF[force]}" ]]; then
+        verbose "+ $(yellow "forcing") renewals"
+        sed -i 's/keep-until-expiring.*//' ${_CONFFILE}
+        echo "force-renewal = true"                 >> ${_CONFFILE}
     fi
 
     echo "config-dir = ${_LEDIR}"                   >> ${_CONFFILE}
@@ -240,7 +249,7 @@ while [[ $# -ge 1 ]]; do
             shift
             ;;
 
-        -clean|-test|-revoke|-renew|-get|-verbose)
+        -clean|-test|-revoke|-renew|-force|-get|-verbose)
             CONF[${_key#-}]=1
             ;;
 
