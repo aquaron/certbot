@@ -56,12 +56,14 @@ EOT
 if [[ $# -lt 1 ]] || [[ ! "${_VOL}" ]]; then echo "$HELP"; exit 1; fi
 
 hint() {
-    local hint="| $* |"
-    local stripped="${hint}"
-    local edge=$(echo "$stripped" | sed -e 's/./-/g' -e 's/^./+/' -e 's/.$/+/')
-    echo "$edge"
-    echo "$hint"
-    echo "$edge"
+    if [[ "${CONF[verbose]}" ]]; then
+        local hint="| $* |"
+        local stripped="${hint}"
+        local edge=$(echo "$stripped" | sed -e 's/./-/g' -e 's/^./+/' -e 's/.$/+/')
+        echo "$edge"
+        echo "$hint"
+        echo "$edge"
+    fi
 }
 
 declare -A CONF=()
@@ -87,29 +89,46 @@ certbot_wildcard() {
     local _host="${CONF[HOST]}"
 
     hint "Create ${_host} wildcard certificate"
-    local _result=$(certbot certonly --config "${_CONFFILE}" -d "*.${_host}" -d "${_host}")
+    local _result=$(certbot certonly --config "${_CONFFILE}" -d "*.${_host}" -d "${_host}" 2>&1)
 
-    if [ "${_result}" ]; then
-        echo "$(red "ABORT"): Error encountered"
-        echo -e "${_result}"
-    fi
+    case "${_result}" in
+        *'Congratulations'*)
+            echo "$(green "SUCCESS:") ${_host} certificate created"
+            ;;
+
+        *'Certificate not yet due for renewal'*)
+            echo "$(yellow "ABORT:") Certificate not yet due for renewal"
+            ;;
+
+        *'Unable to determine base domain'*)
+            echo "$(red "ABORT:") Cannot find $(yellow "$_host") at $(yellow "${CONF[DNS]}")"
+            ;;
+
+        *'DNS problem: NXDOMAIN looking up TXT'*)
+            echo "$(red "ABORT:") Lookup failed, try again later"
+            ;;
+
+        *)
+            echo "$(red "ABORT:") Error encountered"
+            echo -e "$_result"
+            ;;
+    esac
 }
 
 certbot_renew() {
     hint "Renew certificates"
-    local _result=$(certbot renew --config "${_CONFFILE}")
+    local _result=$(certbot renew --config "${_CONFFILE}" 2>&1 | grep 'fullchain.pem ')
+    local _success=$(echo "${_result}" | grep '(success)' | cut -d"/" -f 5 | paste -s -d" ")
+    local _skipped=$(echo "${_result}" | grep '(skipped)' | cut -d"/" -f 5 | paste -s -d" ")
 
-    if [ "${_result}" ]; then
-        echo "$(red "ABORT"): Error encountered"
-        echo -e "${_result}"
-    fi
+    [[ "$_success" ]] && echo "$(green "RENEWED:") $_success"
+    [[ "$_skipped" ]] && verbose "$(yellow "SKIPPED:") $_skipped"
 }
 
 certbot_revoke() {
     conf_assert 'HOST'
 
     local _host="${CONF[HOST]}"
-
     local _path="${_LEDIR}/live/${_host}/cert.pem"
     local _lpath="${_LOCALLEDIR}/live/${_host}/cert.pem"
     if [ ! -s "${_path}" ]; then
@@ -118,7 +137,16 @@ certbot_revoke() {
     fi
 
     hint "Revoking ${_host}"
-    certbot revoke --config ${_CONFFILE} --cert-path "${_path}"
+    local _result=$(certbot revoke --config ${_CONFFILE} --cert-path "${_path}" 2>&1)
+    case "$_result" in
+        *'Congratulations'*)
+            echo "$(green "SUCCESS:") $_host certificate is revoked"
+            ;;
+
+        *)
+            echo -e "$_result"
+            ;;
+    esac
 }
 
 check_dns() {
@@ -130,7 +158,7 @@ check_dns() {
     case $_dns in
         google|digitalocean)
             _credfile="${_DATADIR}/${_dns}-dns.conf"
-            echo "+ got credential file: $(green "${_credfile}")"
+            verbose "+ got credential file: $(green "${_credfile}")"
             ;;
 
         *)
@@ -142,7 +170,7 @@ check_dns() {
     echo "dns-${_dns}-credentials = ${_credfile}"   >> ${_CONFFILE}
     echo "dns-${_dns} = true"                       >> ${_CONFFILE}
 
-    echo "+ add DNS $(green "${_dns}") to configuration"
+    verbose "+ add DNS $(green "${_dns}") to configuration"
 }
 
 remove_all() {
@@ -159,7 +187,7 @@ remove_all() {
 setup_env() {
     conf_assert 'EMAIL'
 
-    local _inifile="${_DATADIR}/cli.ini"
+    local _inifile="/etc/cli.ini"
 
     hint "Initializing"
 
@@ -169,15 +197,15 @@ setup_env() {
     fi
 
     if [[ ! -d "${_LEDIR}" ]]; then
-        echo "+ creating new $(green "${_LEDIR}") directory"
+        verbose "+ creating new $(green "${_LEDIR}") directory"
         mkdir -p ${_LEDIR}
     fi
 
     if [ "${CONF[test]}" ]; then
-        echo "+ using $(yellow "STAGING") server"
+        verbose "+ using $(yellow "STAGING") server"
         sed -e 's/server =.*//' -e 's/server-stage/server/' ${_inifile} > ${_CONFFILE}
     else
-        echo "+ using $(green "PRODUCTION") server"
+        verbose "+ using $(green "PRODUCTION") server"
         sed -e 's/server-stage =.*//' ${_inifile} > ${_CONFFILE}
     fi
 
@@ -189,7 +217,13 @@ setup_env() {
         exit 1
     fi
 
-    echo "+ configuration file initialized: $(green "${_CONFFILE}")"
+    verbose "+ configuration file initialized: $(green "${_CONFFILE}")"
+}
+
+verbose() {
+    if [[ "${CONF[verbose]}" ]]; then
+        echo -e "$1"
+    fi
 }
 
 while [[ $# -ge 1 ]]; do
@@ -201,7 +235,7 @@ while [[ $# -ge 1 ]]; do
             shift
             ;;
 
-        -clean|-test|-revoke|-renew|-get)
+        -clean|-test|-revoke|-renew|-get|-verbose)
             CONF[${_key#-}]=1
             ;;
 

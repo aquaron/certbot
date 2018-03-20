@@ -11,6 +11,7 @@ Get and renew Let's Encrypt Wildcard Certificates using Certbot.
 | -revoke   | revoke `--host` certificate                      |
 | -clean    | remove all certificates                          |
 | -test     | use staging test server instead of production    |
+| -verbose  | talkative mode                                   |
 
 
 | Option    | Description                                      |
@@ -51,12 +52,21 @@ Removes the `letsencrypt` directory. Use it with caution after test runs only.
 
 Domain validation services. Currently supporting ony `google` and `digitalocean`.
 
+### `--host`
+
+Full qualify domain name of the host you want to get certificate for.
+No need to specify the `*`.
+
+### `--email`
+
+Email is required for expiration notifications.
+
 -------------------------------------------------------------------------------
 
 # Usage Instruction
 
 ## Get Let's Encrypt Wildcard Certificate
 
-    docker run --rm -t -v <local-dir>:/data \
-        aquaron/certbot certbot --email <email> --host <fqn> --dns <dns-01> -[get|revoke|renew] [-test]
+    docker run --rm -t -v <local-dir>:/data aquaron/certbot \
+        --email <email> --host <fqn> --dns <dns-01> -[get|revoke|renew] [-test]
 
