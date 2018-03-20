@@ -91,7 +91,7 @@ certbot_wildcard() {
     local _host="${CONF[HOST]}"
 
     hint "Create ${_host} wildcard certificate"
-    local _result=$(certbot certonly --config "${_CONFFILE}" -d "*.${_host}" -d "${_host}" 2>&1)
+    local _result=$(certbot certonly --config "${_CONFFILE}" -d "${_host}" -d "*.${_host}" 2>&1)
 
     case "${_result}" in
         *'Congratulations'*)
