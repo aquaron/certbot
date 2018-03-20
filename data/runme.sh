@@ -29,7 +29,7 @@ guess_volumes() {
 _VOL=$(guess_volumes "/data")
 
 if [[ ! "${_VOL}" ]]; then
-    echo "$(red "ERROR"): you need run Docker with the $(green "-v") parameter, try:"
+    echo "$(red "ERROR:") you need run Docker with the $(green "-v") parameter, try:"
     echo "    \$ docker run --rm -v /tmp:/data aquaron/certbot help"
     exit 1
 fi
@@ -132,7 +132,7 @@ certbot_revoke() {
     local _path="${_LEDIR}/live/${_host}/cert.pem"
     local _lpath="${_LOCALLEDIR}/live/${_host}/cert.pem"
     if [ ! -s "${_path}" ]; then
-        echo "$(red "ERROR"): $(yellow "${_lpath}") does not exist"
+        echo "$(red "ERROR:") $(yellow "${_lpath}") does not exist"
         exit 1
     fi
 
@@ -162,10 +162,15 @@ check_dns() {
             ;;
 
         *)
-            echo "$(red "ERROR"): DNS $(yellow "${_dns}") not supported"
+            echo "$(red "ERROR:") DNS $(yellow "${_dns}") not supported"
             exit 1
             ;;
     esac
+
+    if [[ ! -s "${_credfile}" ]]; then
+        echo "$(red "ERROR:") Credential file $(yellow "${_credfile}") not found"
+        exit 1
+    fi
 
     echo "dns-${_dns}-credentials = ${_credfile}"   >> ${_CONFFILE}
     echo "dns-${_dns} = true"                       >> ${_CONFFILE}
@@ -178,7 +183,7 @@ remove_all() {
         if [[ -z "$(ls -A ${_LEDIR}/live)" ]]; then
             rm -rf ${_LEDIR}
         else
-            echo "$(red "ERROR"): $(yellow "${_LOCALLEDIR}/live") not empty"
+            echo "$(red "ERROR:") $(yellow "${_LOCALLEDIR}/live") not empty"
         fi
     fi
     exit 1
@@ -192,7 +197,7 @@ setup_env() {
     hint "Initializing"
 
     if [[ ! -s "${_inifile}" ]]; then
-        echo "$(red "ERROR"): Cannot find $(yellow "${_inifile}")"
+        echo "$(red "ERROR:") Cannot find $(yellow "${_inifile}")"
         exit 1
     fi
 
@@ -213,7 +218,7 @@ setup_env() {
     echo "email = ${CONF[EMAIL]}"                   >> ${_CONFFILE}
 
     if [[ ! -s "${_CONFFILE}" ]]; then
-        echo "$(red "ERROR"): Cannot find $(yellow "${_CONFFILE}")"
+        echo "$(red "ERROR:") Cannot find $(yellow "${_CONFFILE}")"
         exit 1
     fi
 
@@ -244,7 +249,7 @@ while [[ $# -ge 1 ]]; do
             exit 1
             ;;
         *)
-            echo "$(red "ERROR"): Unknown option: $(yellow "$_key")"
+            echo "$(red "ERROR:") Unknown option: $(yellow "$_key")"
             exit 1
             ;;
     esac
