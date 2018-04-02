@@ -84,6 +84,39 @@ conf_assert() {
     fi
 }
 
+certbot_single() {
+    check_dns
+    conf_assert 'HOST'
+
+    local _host="${CONF[HOST]}"
+
+    hint "Create ${_host} single certificate"
+    local _result=$(certbot certonly --config "${_CONFFILE}" -d "${_host}" 2>&1)
+
+    case "${_result}" in
+        *'Congratulations'*)
+            echo "$(green "SUCCESS:") ${_host} certificate created"
+            ;;
+
+        *'Certificate not yet due for renewal'*)
+            echo "$(yellow "ABORT:") Certificate not yet due for renewal"
+            ;;
+
+        *'Unable to determine base domain'*)
+            echo "$(red "ABORT:") Cannot find $(yellow "$_host") at $(yellow "${CONF[DNS]}")"
+            ;;
+
+        *'DNS problem: NXDOMAIN looking up TXT'*)
+            echo "$(red "ABORT:") Lookup failed, try again later"
+            ;;
+
+        *)
+            echo "$(red "ABORT:") Error encountered"
+            echo -e "$_result"
+            ;;
+    esac
+}
+
 certbot_wildcard() {
     check_dns
     conf_assert 'HOST'
