@@ -7,8 +7,10 @@ Get and renew Let's Encrypt Wildcard Certificates using Certbot.
 | Command   | Description                                      |
 | --------- | ------------------------------------------------ |
 | -get      | get LE's wildcard certficicates for `--host`     |
+| -single   | get a single `--host` certificate                |
 | -renew    | renew all existing expiring certificates         |
 | -revoke   | revoke `--host` certificate                      |
+| -delete   | delete a certificate                             |
 | -clean    | remove all certificates                          |
 | -test     | use staging test server instead of production    |
 | -force    | force get/renew even when cert not expired       |
