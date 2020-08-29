@@ -1,4 +1,5 @@
 # certbot
+![Docker](https://github.com/aquaron/certbot/workflows/Docker/badge.svg)
 
 Get and renew Let's Encrypt Wildcard Certificates using Certbot.
 
