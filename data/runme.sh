@@ -46,9 +46,11 @@ Usage: docker run -t --rm -v $(green "<local-dir>"):/data aquaron/certbot [$(yel
    --dns    - dns-01 challenge plugin (eg $(fade "digitalocean"))
    --email  - Email address of maintainer (eg $(fade "me@example.com"))
 
-   -get     - Get new certificate
+   -get     - Get new wildcard certificate example.com & *.example.com
+   -single  - Get a single certificate
    -renew   - Renew all certificates
    -revoke  - Revoke certificate and delete it
+
    -clean   - Remove letsencrypt directory (careful with this)
    -test    - Use staging server instead of production
    -force   - Toggles forcing of renewal (for both get/renew)
@@ -84,14 +86,19 @@ conf_assert() {
     fi
 }
 
-certbot_wildcard() {
+certbot_get() {
     check_dns
     conf_assert 'HOST'
 
+    local _wildcard=
+    if [[ "$1" ]]; then
+        _wildcard="-d *.${_host}"
+    fi
+
     local _host="${CONF[HOST]}"
 
-    hint "Create ${_host} wildcard certificate"
-    local _result=$(certbot certonly --config "${_CONFFILE}" -d "${_host}" -d "*.${_host}" 2>&1)
+    hint "Create ${_host} certificate(s)"
+    local _result=$(certbot certonly --config "${_CONFFILE}" -d "${_host}" ${_wildcard} 2>&1)
 
     case "${_result}" in
         *'Congratulations'*)
@@ -121,6 +128,11 @@ certbot_renew() {
     hint "Renew certificates"
 
     local _result=$(certbot renew --config "${_CONFFILE}" 2>&1 | grep 'fullchain.pem ')
+    if [[ ! "${_result}" ]]; then
+        echo "$(red "ABORT:") Nothing to renew"
+        exit 1
+    fi
+
     local _success=$(echo "${_result}" | grep '(success)' | cut -d"/" -f 5 | paste -s -d" ")
     local _skipped=$(echo "${_result}" | grep '(skipped)' | cut -d"/" -f 5 | paste -s -d" ")
 
@@ -142,13 +154,21 @@ certbot_revoke() {
     hint "Revoking ${_host}"
     local _result=$(certbot revoke --config ${_CONFFILE} --cert-path "${_path}" 2>&1)
     case "$_result" in
-        *'Congratulations'*)
-            echo "$(green "SUCCESS:") $_host certificate is revoked"
-            ;;
+        *'Congratulations'*) echo "$(green "SUCCESS:") $_host certificate is revoked" ;;
+        *) echo -e "$_result" ;;
+    esac
+}
 
-        *)
-            echo -e "$_result"
-            ;;
+certbot_delete() {
+    conf_assert 'HOST'
+
+    local _host="${CONF[HOST]}"
+
+    hint "Deleting ${_host}"
+    local _result=$(certbot delete --config ${_CONFFILE} --cert-name "${_host}" 2>&1)
+    case "$_result" in
+        *'Deleted'*) echo "$(green "SUCCESS:") $_host certificate is deleted" ;;
+        *) echo -e "$_result" ;;
     esac
 }
 
@@ -249,8 +269,13 @@ while [[ $# -ge 1 ]]; do
             shift
             ;;
 
-        -clean|-test|-revoke|-renew|-force|-get|-verbose)
+        -clean|-test|-force|-verbose)
             CONF[${_key#-}]=1
+            ;;
+
+        -revoke|-renew|-get|-single|-delete)
+            CONF[${_key#-}]=1
+            ACTION=1
             ;;
 
         help)
@@ -269,11 +294,13 @@ done
 
 setup_env
 
-[[ "${CONF[get]}" ]] && certbot_wildcard
+[[ "${CONF[get]}" ]] && certbot_get "wildcard"
+[[ "${CONF[single]}" ]] && certbot_get
 [[ "${CONF[renew]}" ]] && certbot_renew
 [[ "${CONF[revoke]}" ]] && certbot_revoke
+[[ "${CONF[delete]}" ]] && certbot_delete
 
-if [[ ! "${CONF[get]}" ]] && [[ ! "${CONF[renew]}" ]] && [[ ! "${CONF[revoke]}" ]]; then
+if [[ ! "ACTION" ]]; then
     echo "$(yellow "ABORT"): Nothing is done. Use $(yellow "-get")?"
 fi
 
